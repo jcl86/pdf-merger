@@ -4,4 +4,4 @@ Web application that allows you to merge pdfs
 
 Created using blazor wasm and PdfSharp
 
-Deployed to jcl86.github.io/pdf-merger
+Deployed to [github pages](jcl86.github.io/pdf-merger)
