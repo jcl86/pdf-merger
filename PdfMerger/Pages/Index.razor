@@ -1,0 +1,131 @@
+﻿@page "/"
+@inject MergingService PdfMerger
+
+<PageTitle>Pdf Merger</PageTitle>
+
+<section class="flex flex-col">
+
+    <h1 class="text-gray-700 border-gray-200 font-semibold text-3xl text-center my-10">
+        Welcome to pdf merger
+    </h1>
+
+    <div class="flex-1 p-6 lg:px-10">
+
+        <div class="flex items-center justify-center w-full">
+            <label for="dropzone-file" class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-bray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600">
+                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                    <svg aria-hidden="true" class="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
+                </div>
+                <InputFile id="dropzone-file"
+                           class="hidden"
+                           OnChange="@FileChanged" multiple />
+            </label>
+        </div>
+
+
+    </div>
+
+    <h2 class="text-gray-700 border-gray-200 font-semibold text-xl text-center">
+        Files to merge:
+    </h2>
+    <div class="px-6 lg:px-10 flex flex-col space-y-1 my-2">
+        @foreach (var file in files)
+        {
+            <div class="bg-gray-200 rounded px-2 py-1 flex" title="@file.FileName">
+
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                    <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" />
+                    <line x1="9" y1="9" x2="10" y2="9" />
+                    <line x1="9" y1="13" x2="15" y2="13" />
+                    <line x1="9" y1="17" x2="15" y2="17" />
+                </svg>
+                <span class="ml-1 flex-1 text-lg">
+                    @file
+                </span>
+
+                <button @onclick="() => files.Remove(file)" class="inline-flex items-center justify-center text-gray-700 rounded p-1 hover:bg-white focus:ring-2 focus:outline-none focus:ring-gray-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                </button>
+            </div>
+        }
+    </div>
+
+    <div class="flex justify-center">
+
+        <button class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-12 text-xl rounded" @onclick="Merge">
+            Merge
+        </button>
+    </div>
+</section>
+
+@code {
+    private const string pdfContentType = "application/pdf";
+    private long maxAllowedSize = 1024 * 1024 * 10;
+
+    private List<UploadedFile> files = new List<UploadedFile>();
+
+    async Task FileChanged(InputFileChangeEventArgs args)
+    {
+        IReadOnlyList<IBrowserFile>? browserFiles = args.GetMultipleFiles(10);
+
+        if (browserFiles is null)
+            return;
+
+        foreach (var browserFile in browserFiles)
+        {
+            if (browserFile.ContentType.Equals(pdfContentType))
+            {
+                var file = await Parse(browserFile);
+                files.Add(new UploadedFile(browserFile.Name, file));
+            }
+        }
+    }
+
+    private async Task Merge()
+    {
+        await PdfMerger.MergePDFs(files.Select(x => x.File));
+        files = new List<UploadedFile>();
+    }
+
+    private async Task<byte[]> Parse(IBrowserFile file)
+    {
+        byte[]? buffer = new byte[file.Size];
+        using (var stream = file.OpenReadStream(maxAllowedSize))
+        {
+            await file.OpenReadStream(maxAllowedSize).ReadAsync(buffer);
+            return buffer;
+        }
+    }
+
+    internal class UploadedFile
+    {
+        public byte[] File { get; }
+        public string FileName { get; }
+
+        public UploadedFile(string fileName, byte[] file)
+        {
+            FileName = fileName;
+            File = file;
+        }
+
+        public override string ToString()
+        {
+            int limit = 50;
+            
+            if (string.IsNullOrWhiteSpace(FileName))
+            {
+                return "";
+            }
+
+            return FileName.Trim().Length > limit ? FileName.Trim().Substring(0, limit) + " " + "..." : FileName.Trim();
+        }
+    }
+}
